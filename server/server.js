@@ -38,12 +38,12 @@ app.get('/todos/:id', (req, res) => {
 	}
 	Todo.findById(id).then((todo) => {
 		if(!todo){
-			res.status(400).send();
-		}else{
-			res.status(200).send({
-				todo: todo
-			});
+			return res.status(404).send();
 		}
+		res.status(200).send({
+			todo: todo
+		});
+		
 	}).catch((e) => {
 		res.status(400).send();
 	});
