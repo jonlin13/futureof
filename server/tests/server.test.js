@@ -1,16 +1,25 @@
+// APPLICATION FEATURE TESTS.
+// THIS TEST SUITE IS WRITTEN FOR A
+// GENERIC TO-DO APPLICATION:
+
 const {ObjectID} = require('mongodb');
 const expect = require('expect');
 const request = require('supertest');
 
 const {app} = require('./../server');
-const {Todo} = require('./../models/todo');
+const {DataModelName} = require('./../models/dataModelName');
 const {User} = require('./../models/user');
-const {todos, users, populateTodos, populateUsers} = require('./seed/seed');
+const {dataModelName, users, populateTodos, populateDataModelName} = require('./seed/seed');
 
+// Before running any test blocks
+// Re-populate the database with seed data:
 beforeEach(populateUsers);
-beforeEach(populateTodos);
+beforeEach(populateDataModelName);
 
+
+// Starter tests below written for CRUD todo app:
 describe('POST /todos', () => {
+	
 	it('should create a new todo', (done) => {
 		var text = 'Test todo text';
 

@@ -1,12 +1,17 @@
+// SEED A TEST DATABASE:
+
 const {ObjectID} = require('mongodb');
 const jwt = require('jsonwebtoken');
 
-const {Todo} = require('./../../models/todo');
+// Pull in data models:
+const {dataModelName} = require('./../../models/dataModelName');
 const {User} = require('./../../models/user');
 
+// Create test user IDs:
 const userOneId = new ObjectID();
 const userTwoId = new ObjectID();
 
+// Create test users:
 const users = [{
 	_id: userOneId,
 	email: 'jon@gmail.com',
@@ -25,19 +30,19 @@ const users = [{
 	}]
 }];
 
-const todos = [{
+// Create a couple test data objects:
+const dataModelName = [{
 	_id: new ObjectID(), 
-	text: 'First test todo',
+	text: 'First data model item',
 	_creator: userOneId
 },{
 	_id: new ObjectID(), 
-	text: 'Second test todo',
-	completed: true,
-	completedAt: 333,
+	text: 'Second data model item',
 	_creator: userTwoId
 }];
 
-const populateTodos = (done) => {
+// Populate application's test database with data:
+const populateDataModelName = (done) => {
 	Todo.remove({}).then(() => {
 		return Todo.insertMany(todos);
 	}).then(() => {
@@ -45,6 +50,7 @@ const populateTodos = (done) => {
 	});
 };
 
+// Populate test database with both users:
 const populateUsers = (done) => {
 	User.remove({}).then(() => {
 		var userOne = new User(users[0]).save();
@@ -57,9 +63,9 @@ const populateUsers = (done) => {
 };
 
 module.exports = {
-	todos: todos,
+	dataModelName: dataModelName,
 	users: users,
-	populateTodos: populateTodos,
+	populateDataModelName: populateDataModelName,
 	populateUsers: populateUsers
 
 };

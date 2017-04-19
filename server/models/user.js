@@ -1,3 +1,6 @@
+// STARTER USER DATA MODEL WITH MODEL 
+// AND INSTANCE METHODS TO HANDLE AUTHENTICATION:
+
 var mongoose = require('mongoose');
 var validator = require('validator');
 const jwt = require('jsonwebtoken');
@@ -33,14 +36,18 @@ var UserSchema = new mongoose.Schema({
 	}]
 });
 
+
 UserSchema.methods.toJSON = function () {
 	var user = this;
 	var userObject = user.toObject();
 	return _.pick(userObject, ['_id', 'email']);
 };
 
+// Method to Create a token and add it to the user model's token array
+// Use for creation of new user accounts and logging in:
 UserSchema.methods.generateAuthToken = function () {
 	var user = this;
+
 	var access = 'auth';
 	var token = jwt.sign({_id: user._id.toHexString(), access}, process.env.JWT_SECRET).toString();
 
@@ -54,6 +61,8 @@ UserSchema.methods.generateAuthToken = function () {
 	});
 };
 
+// Method to Remove the token from user
+// Use for logging out:
 UserSchema.methods.removeToken = function (token) {
 	var user = this;
 
@@ -66,6 +75,8 @@ UserSchema.methods.removeToken = function (token) {
 	});
 };
 
+// Method to find a user based on current token
+// Use for authentication middleware:
 UserSchema.statics.findByToken = function(token) {
 	var User = this;
 	var decoded;
@@ -83,6 +94,8 @@ UserSchema.statics.findByToken = function(token) {
 	})
 };
 
+// Instance method used to find a user based on email and password
+// Used to login in tandem with generateAuthToken:
 UserSchema.statics.findByCredentials = function(email, password) {
 	var User = this;
 
@@ -110,6 +123,7 @@ UserSchema.statics.findByCredentials = function(email, password) {
 	});
 };
 
+// Hash and salt password if it ever changes:
 UserSchema.pre('save', function (next) {
 	var user = this;
 
