@@ -19,6 +19,13 @@ var UserSchema = new mongoose.Schema({
 			message: '{VALUE} is not a valid email'
 		}
 	},
+	username: {
+		type: String,
+		required: true,
+		trim: true,
+		minlength: 1,
+		unique: true
+	},
 	password: {
 		type: String,
 		require: true,
@@ -33,9 +40,38 @@ var UserSchema = new mongoose.Schema({
 			type: String,
 			required: true
 		}
-	}]
+	}],
+	following_futures: [
+		{	
+			future: {
+				type: mongoose.Schema.Types.ObjectId,
+				required: true,
+				unqiue: true
+			},
+			date: { type: Date, default: Date.now }	
+		}
+	],
+	following_users: [
+		{
+			user: {
+				type: mongoose.Schema.Types.ObjectId,
+				required: true
+			},
+			date: { type: Date, default: Date.now }	
+		}
+	],
+	users_following: [
+		{
+			user: {
+				type: mongoose.Schema.Types.ObjectId,
+				required: true
+			},
+			date: { type: Date, default: Date.now }	
+		}
+	]
 });
 
+// UserSchema.set('autoIndex', true);
 
 UserSchema.methods.toJSON = function () {
 	var user = this;
@@ -96,11 +132,11 @@ UserSchema.statics.findByToken = function(token) {
 
 // Instance method used to find a user based on email and password
 // Used to login in tandem with generateAuthToken:
-UserSchema.statics.findByCredentials = function(email, password) {
+UserSchema.statics.findByCredentials = function(username, password) {
 	var User = this;
 
 	return User.findOne({
-		'email': email
+		'username': username
 	}).then((user) => {
 		if(!user) {
 			return Promise.reject();

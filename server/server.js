@@ -7,7 +7,7 @@ const {ObjectID} = require('mongodb');
 const bcrypt = require('bcryptjs');
 
 var {mongoose} = require('./db/mongoose');
-var {DataModelName} = require('./models/dataModelName');
+var {Future} = require('./models/future');
 var {User} = require('./models/user');
 var {authenticate} = require('./middleware/authenticate');
 
@@ -21,16 +21,16 @@ const port = process.env.PORT;
 app.use(bodyParser.json());
 
 // CREATE A NEW DATA ITEM:
-app.post('/datamodelname', authenticate, (req, res) => {
+app.post('/futures', authenticate, (req, res) => {
 
 	// Instantiate a new mongoose data model with request:
-	var datamodelname = new DataModelName({
-		text: req.body.text,
+	var future = new Future({
+		question: req.body.question,
 		_creator: req.user._id
 	});
 
 	// Save, send response and check for errors:
-	datamodelname.save().then((doc) => {
+	future.save().then((doc) => {
 		res.send(doc);
 	}, (e) => {
 		res.status(400).send(e);
@@ -38,15 +38,13 @@ app.post('/datamodelname', authenticate, (req, res) => {
 });
 
 // RETRIEVE ALL AVAILABLE DATA REQUEST W/AUTHENTICATION
-app.get('/datamodelname', authenticate, (req, res) => {
+app.get('/futures', (req, res) => {
 
 	// Perform a lookup for data item based on user ID
 	// returned from authentication:
-	DataModelName.find({
-		_creator: req.user._id
-	}).then((todos) => {
+	Future.find({}).then((futures) => {
 		res.send({
-			datamodelname: datamodelname
+			futures: futures
 		});
 	}, (e) => {
 		res.status(400).send(e);
@@ -54,7 +52,7 @@ app.get('/datamodelname', authenticate, (req, res) => {
 });
 
 // RETRIEVE A SINGLE DATA ITEM REQUEST W/AUTHENTICATION
-app.get('/datamodelname/:id', authenticate, (req, res) => {
+app.get('/futures/:id', (req, res) => {
 	var id = req.params.id;
 
 	// Validate ID format
@@ -65,19 +63,18 @@ app.get('/datamodelname/:id', authenticate, (req, res) => {
 	// If initial validation succeeds,
 	// Lookup data item based on ID
 	// AND user ID:
-	DataModelName.findOne({
-		_id:id,
-		_creator:req.user._id
-	}).then((datamodelname) => {
+	Future.findOne({
+		_id:id
+	}).then((future) => {
 
 		// Handle no ID found error:
-		if(!datamodelname){
+		if(!future){
 			return res.status(404).send();
 		}
 
 		// Send data item with found ID
 		res.status(200).send({
-			todo: todo
+			future: future
 		});
 		
 	}).catch((e) => {
@@ -85,84 +82,86 @@ app.get('/datamodelname/:id', authenticate, (req, res) => {
 	});
 });
 
-// DELETE A SINGLE DATA ITEM REQUEST W/AUTHENTICATION
-app.delete('/datamodelname/:id', authenticate, (req, res) => {
-	var id = req.params.id;
-
-	// Validate ID format
-	if (!ObjectID.isValid(id)){
-		return res.status(404).send();
-	}
-
-	// If initial validation succeeds,
-	// Lookup and remove data item based on ID
-	// AND user ID:
-	DataModelName.findOneAndRemove({
-		_id: id,
-		_creator: req.user._id
-	}).then((datamodelname) => {
-
-		// Handle no ID found error:
-		if(!datamodelname){
-			return res.status(404).send();
-		}
-		// Send removed data item with found ID
-		res.status(200).send({
-			datamodelname: datamodelname
-		});
-	}).catch((e) => {
-		res.status(400).send();
-	});
-});
 
 // UPDATE A SINGLE DATA ITEM W/AUTHENTICATION
-app.patch('/datamodelname/:id', authenticate, (req, res) => {
+app.patch('/futures/:id', authenticate, (req, res) => {
 	var id = req.params.id;
 
 	// Use lodash to create a body object 
 	// that we can use to pass into our data scheme
 	// from request's body
-	var body = _.pick(req.body, ['text', 'completed']);
+	var body = _.pick(req.body, ['response']);
 	
 	// Validate ID format
 	if (!ObjectID.isValid(id)){
 		return res.status(404).send();
 	}
 
-	// TODO app-specific condition
-	// In the body object, if the 'completed' attribute 
-	// comes back as a boolean and it is truthy
-	// the automatically set the 'completedAt' attribute
-	// to be equal to the current time-stamp
-	// otherwise set to false with a null time-stamp:
-	if(_.isBoolean(body.completed) && body.completed){
-		body.completedAt = new Date().getTime();
-	} else {
-		body.completed = false;
-		body.completedAt = null;
-	}
-
 	// Lookup data item based on id and user id
 	// and set body to requests data submission:
-	DataModelName.findOneAndUpdate(
+	Future.findOneAndUpdate(
 		{
-			_id: id,
-			_creator: req.user._id
+			_id: id
 		}, 
-		{ $set: body },
+		{$push: {"responses": {response: body.response, user: req.user._id}}},
 		{ new: true }
-	).then((datamodelname) => {
-		if(!datamodelname){
+	).then((future) => {
+		if(!future){
 			return res.status(404).send();
 		}
 		res.status(200).send({
-			datamodelname: datamodelname
+			future: future
 		});
 	}).catch((e) => {
 		res.status(400).send();
 	});
 
 });
+
+app.patch('/futures/:id/follow', authenticate, (req, res) => {
+	var id = req.params.id;
+
+	if (!ObjectID.isValid(id)){
+		return res.status(404).send();
+		console.log('id is bad');
+	}
+
+	Future.findOneAndUpdate(
+		{
+			_id: id
+		}, 
+		{$push: {"followers": {user: req.user._id}}},
+		{ new: true }
+	).then((future) => {
+		if(!future){
+			return res.status(404).send();
+			console.log('no future found with this id');
+		}
+
+		User.findOneAndUpdate(
+			{
+				_id: req.user
+			},
+			{$push: {"following_futures": {future: id}}},
+			{new: true}
+		).then((user) => {
+			if(!user){
+				return res.status(404).send();
+				console.log('no user returned');
+			}
+			res.status(200).send({
+				future: future,
+				just_followed_by: user
+			});
+		});
+
+	}).catch((e) => {
+		res.status(400).send();
+		console.log(e);
+	});
+});
+
+
 
 // CREATE A NEW USER
 app.post('/users', (req, res) => {
@@ -170,7 +169,7 @@ app.post('/users', (req, res) => {
 	// Use lodash to create a body object 
 	// that we can use to pass into our data scheme
 	// from request's body
-	var body = _.pick(req.body, ['email', 'password']);
+	var body = _.pick(req.body, ['email', 'username', 'password']);
 
 	// Instantiate a new User data model and pass the 
 	// requests body in
@@ -184,6 +183,7 @@ app.post('/users', (req, res) => {
 		res.header('x-auth', token).send(user);
 	}).catch((e) => {
 		res.status(400).send(e);
+		console.log(e);
 	});
 });
 
@@ -193,10 +193,10 @@ app.post('/users/login', (req, res) => {
 	// Use lodash to create a body object 
 	// that we can use to pass into our data scheme
 	// from request's body
-	var body = _.pick(req.body, ['email', 'password']);
+	var body = _.pick(req.body, ['username', 'password']);
 
 	// Lookup user with credentials (instance method)
-	User.findByCredentials(body.email, body.password).then((user) => {
+	User.findByCredentials(body.username, body.password).then((user) => {
 
 		// If user exists, generate a token
 		// and send it back as a custom header
@@ -229,7 +229,83 @@ app.get('/users/me', authenticate, (req, res) => {
 	res.send(req.user);
 });
 
-// Start app up on port number set by environment PORT variable:
+// UPDATE A SINGLE DATA ITEM W/AUTHENTICATION
+app.get('/users/:id', authenticate, (req, res) => {
+	var id = req.params.id;
+	
+	// Validate ID format
+	if (!ObjectID.isValid(id)){
+		return res.status(404).send();
+	}
+
+	// Lookup data item based on id and user id
+	// and set body to requests data submission:
+	User.findById(id).then((user) => {
+		if(!user){
+			return res.status(404).send();
+		}
+		res.status(200).send({
+			email: user.email,
+			username: user.username,
+			id: user._id,
+			following_futures: user.following_futures,
+			following_users: user.following_users,
+			users_following: user.users_following
+		});
+	}).catch((e) => {
+		res.status(400).send();
+	});
+});
+
+
+// FOLLOW A USER:
+// Adding you to the users list
+// and the user to your own list
+app.patch('/users/:id/follow', authenticate, (req, res) => {
+	var id = req.params.id;
+
+	// Validate ID format
+	if (!ObjectID.isValid(id)){
+		return res.status(404).send();
+		console.log('id is bad');
+	}
+
+	User.findOneAndUpdate(
+		{
+			_id: req.user
+		}, 
+		{$push: {"following_users": {user: id}}},
+		{ new: true }
+	).then((user) => {
+		if(!user){
+			return res.status(404).send();
+			console.log('no user found with this id');
+		}
+
+		User.findOneAndUpdate(
+			{
+				_id: id
+			},
+			{$push: {"users_following": {user: req.user}}},
+			{new: true}
+		).then((viewedUser) => {
+			if(!user){
+				return res.status(404).send();
+				console.log('no user returned');
+			}
+			res.status(200).send({
+				user: user,
+				viewedUser: viewedUser
+			});
+		});
+
+	}).catch((e) => {
+		res.status(400).send();
+		console.log(e);
+	});
+
+});
+
 app.listen(port, () => {
 	console.log(`started on port ${port}`);
 });
